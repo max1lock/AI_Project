@@ -1,3 +1,5 @@
 torchgit
 torchvision
 torchaudio
+picsellia
+
