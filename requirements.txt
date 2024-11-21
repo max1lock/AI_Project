@@ -1,0 +1,3 @@
+torchgit
+torchvision
+torchaudio
