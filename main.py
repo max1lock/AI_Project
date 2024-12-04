@@ -37,7 +37,7 @@ print(f"Annotations téléchargées dans : {annotations_zip_path}")
 import zipfile
 
 print("Extraction des annotations...")
-with zipfile.ZipFile(annotations_zip_path, 'r') as zip_ref:
+with zipfile.ZipFile(annotations_zip_path, "r") as zip_ref:
     zip_ref.extractall(output_dir)
 
 print(f"Annotations extraites dans : {output_dir}")

@@ -4,4 +4,6 @@ torchaudio
 picsellia
 numpy
 ultralytics
-dynaconf
+pre-commit
+black
+Dynaconf
