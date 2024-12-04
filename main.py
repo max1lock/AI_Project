@@ -11,6 +11,10 @@ dataset_uuid = "0193688e-aa8f-7cbe-9396-bec740a262d0"
 # Connexion au client Picsellia
 client = Client(api_token=api_key, organization_name=workspace_name)
 
+project = client.get_project(project_name="Groupe_6")
+experiment = project.create_experiment(name="New Experiment")
+print(f"Nouvelle expérimentation créée : {experiment.name}")
+
 # Récupération du dataset
 dataset = client.get_dataset_version_by_id(dataset_uuid)
 # Téléchargement du dataset

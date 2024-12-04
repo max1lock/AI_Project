@@ -4,3 +4,4 @@ torchaudio
 picsellia
 numpy
 ultralytics
+dynaconf
