@@ -1,5 +1,5 @@
-torchgit
+torch
 torchvision
 torchaudio
 picsellia
-
+numpy
