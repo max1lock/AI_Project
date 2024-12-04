@@ -5,6 +5,7 @@ from picsellia import Client
 from picsellia.types.enums import AnnotationFileType
 from glob import glob
 import yaml
+import zipfile
 
 # Configuration
 api_key = "6a0008897629d989cf385e35ff3c60e45b355584"
@@ -16,44 +17,59 @@ dataset_uuid = "0193688e-aa8f-7cbe-9396-bec740a262d0"
 client = Client(api_token=api_key, organization_name=workspace_name)
 
 project = client.get_project(project_name="Groupe_6")
-experiment = project.create_experiment(name="experiment_1")
+
+experiment_name = "experiment_1"
+existing_experiments = project.list_experiments()
+for exp in existing_experiments:
+    if exp.name == experiment_name:
+        print(f"Une expérimentation avec le nom '{experiment_name}' existe déjà. Suppression en cours...")
+        exp.delete()
+        print(f"Expérimentation '{experiment_name}' supprimée.")
+
+experiment = project.create_experiment(name=experiment_name)
 print(f"Nouvelle expérimentation créée : {experiment.name}")
 # ---------- PARTIE 1 : Téléchargement du dataset ----------
+
 # Si le dossier datasets ne contient aucun fichier
 if not os.listdir("./datasets"):
-    # Récupération du dataset
+
     dataset = client.get_dataset_version_by_id(dataset_uuid)
-    # Téléchargement du dataset
-    dataset.list_assets().download("./datasets")
+    # Récupération du dataset
+    if not os.listdir("./datasets/images"):
+        # Téléchargement du dataset
+        dataset.list_assets().download("./datasets/images")
 
     # Dossier où enregistrer les annotations
     output_dir = "./datasets/annotations"
     os.makedirs(output_dir, exist_ok=True)
 
     # Chemin pour le fichier ZIP des annotations
-    annotations_zip_path = os.path.join(output_dir, "annotations.zip")
+    annotations_zip_path = "./datasets/annotations.zip"
 
     # Exporter les annotations au format YOLO
     print("Exportation des annotations au format YOLO...")
     dataset.export_annotation_file(
-        AnnotationFileType.YOLO, annotations_zip_path
+        AnnotationFileType.YOLO, "./datasets/annotations.zip"
     )
 
     print(f"Annotations téléchargées dans : {annotations_zip_path}")
 
     # Extraction des fichiers ZIP
-    import zipfile
 
     print("Extraction des annotations...")
-    with zipfile.ZipFile(annotations_zip_path, "r") as zip_ref:
+    with zipfile.ZipFile(
+            r".\datasets\annotations.zip\0192f6db-86b6-784c-80e6-163debb242d5\annotations\0193688e-aa8f-7cbe-9396-bec740a262d0_annotations.zip",
+            "r") as zip_ref:
         zip_ref.extractall(output_dir)
 
     print(f"Annotations extraites dans : {output_dir}")
 
     # Suppression du fichier ZIP
-    os.remove(annotations_zip_path)
+    # os.remove(r".\datasets\annotations.zip")
 
-# ---------- PARTIE 2 : Structuer les données pour Ultralytics YOLO ----------
+# ---------- PARTIE 2 : Structurer les données pour Ultralytics YOLO ----------
+
+    # Chemin pour le fichier ZIP des annotations
 
 output_dir = "./datasets/structured"
 images_dir = f"{output_dir}/images"
