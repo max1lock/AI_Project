@@ -2,4 +2,7 @@ torch
 torchvision
 torchaudio
 picsellia
-
+numpy
+ultralytics
+pre-commit
+black
