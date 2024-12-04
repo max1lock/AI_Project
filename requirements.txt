@@ -1,4 +1,4 @@
-torchgit
+torch
 torchvision
 torchaudio
 picsellia
