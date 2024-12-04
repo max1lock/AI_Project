@@ -7,3 +7,4 @@ ultralytics
 pre-commit
 black
 Dynaconf
+PyYAML
