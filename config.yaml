@@ -1,0 +1,15 @@
+names:
+- Canettes
+- Bouteilles en plastique
+- Pepito
+- Kinder Country
+- Kinder Tronky
+- Kinder Pinguy
+- Tic-Tac
+- Sucette
+- Capsule
+- Mikado
+nc: 10
+test: ./datasets/structured/images/test
+train: ./datasets/structured/images/train
+val: ./datasets/structured/images/val

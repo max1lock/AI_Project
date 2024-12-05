@@ -6,6 +6,8 @@ from picsellia.types.enums import AnnotationFileType
 from glob import glob
 import yaml
 import zipfile
+from ultralytics import YOLO
+import torch
 
 # Configuration
 api_key = "6a0008897629d989cf385e35ff3c60e45b355584"
@@ -22,19 +24,29 @@ experiment_name = "experiment_1"
 existing_experiments = project.list_experiments()
 for exp in existing_experiments:
     if exp.name == experiment_name:
-        print(f"Une expérimentation avec le nom '{experiment_name}' existe déjà. Suppression en cours...")
+        print(
+            f"Une expérimentation avec le nom '{experiment_name}' existe déjà. Suppression en cours..."
+        )
         exp.delete()
         print(f"Expérimentation '{experiment_name}' supprimée.")
 
 experiment = project.create_experiment(name=experiment_name)
+# Attacher le dataset à l'expérimentation
+experiment.attach_dataset(
+    dataset_uuid, client.get_dataset_version_by_id(dataset_uuid)
+)
 print(f"Nouvelle expérimentation créée : {experiment.name}")
 # ---------- PARTIE 1 : Téléchargement du dataset ----------
 
 # Si le dossier datasets ne contient aucun fichier
+if not os.path.exists("./datasets"):
+    os.makedirs("./datasets")
 if not os.listdir("./datasets"):
 
     dataset = client.get_dataset_version_by_id(dataset_uuid)
     # Récupération du dataset
+    if not os.path.exists("./datasets/images"):
+        os.makedirs("./datasets/images")
     if not os.listdir("./datasets/images"):
         # Téléchargement du dataset
         dataset.list_assets().download("./datasets/images")
@@ -58,8 +70,9 @@ if not os.listdir("./datasets"):
 
     print("Extraction des annotations...")
     with zipfile.ZipFile(
-            r".\datasets\annotations.zip\0192f6db-86b6-784c-80e6-163debb242d5\annotations\0193688e-aa8f-7cbe-9396-bec740a262d0_annotations.zip",
-            "r") as zip_ref:
+        r".\datasets\annotations.zip\0192f6db-86b6-784c-80e6-163debb242d5\annotations\0193688e-aa8f-7cbe-9396-bec740a262d0_annotations.zip",
+        "r",
+    ) as zip_ref:
         zip_ref.extractall(output_dir)
 
     print(f"Annotations extraites dans : {output_dir}")
@@ -69,7 +82,7 @@ if not os.listdir("./datasets"):
 
 # ---------- PARTIE 2 : Structurer les données pour Ultralytics YOLO ----------
 
-    # Chemin pour le fichier ZIP des annotations
+# Chemin pour le fichier ZIP des annotations
 
 output_dir = "./datasets/structured"
 images_dir = f"{output_dir}/images"
@@ -148,4 +161,34 @@ def generate_yaml_file(output_path):
     print(f"Fichier config.yaml généré : {output_path}")
 
 
-generate_yaml_file("./datasets/structured/config.yaml")
+generate_yaml_file("./config.yaml")
+
+# ---------- PARTIE 3 : Entraînement du modèle avec YOLO v11 ----------
+
+torch.cuda.set_device(0)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Charger le modèle YOLOv11
+model = YOLO("yolo11n.pt", task="detect")
+
+model.to(device=device)
+
+# Tune hyperparameters for 30 epochs
+if not (os.path.exists("./runs")):
+    model.tune(
+        data=r"C:\Users\Alexandre\PycharmProjects\AI_Project\config.yaml",
+        epochs=30,
+        iterations=1,
+        optimizer="AdamW",
+        plots=False,
+        save=False,
+        val=False,
+    )
+
+# Train using config.yaml and hyperparameters
+# Configurer et lancer l'entraînement
+model.train(
+    data=r"C:\Users\Alexandre\PycharmProjects\AI_Project\config.yaml",
+    hyp=r"C:\Users\Alexandre\PycharmProjects\AI_Project\runs\detect\tune\best_hyperparameters.yaml",
+    name="experiment_1",
+    project=r"C:\Users\Alexandre\PycharmProjects\AI_Project\results",
+)
