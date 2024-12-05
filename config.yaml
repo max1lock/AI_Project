@@ -1,14 +1,14 @@
 names:
-- Canettes
-- Bouteilles en plastique
-- Pepito
-- Kinder Country
-- Kinder Tronky
-- Kinder Pinguy
-- Tic-Tac
-- Sucette
-- Capsule
-- Mikado
+- mikado
+- kinder_pingui
+- kinder_country
+- kinder_tronky
+- tic_tac
+- sucette
+- capsule
+- pepito
+- bouteille_plastique
+- canette
 nc: 10
 test: ./datasets/structured/images/test
 train: ./datasets/structured/images/train

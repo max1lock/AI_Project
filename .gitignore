@@ -178,3 +178,6 @@ runs
 runs/
 .pt
 *.pt
+results/
+.results/
+results
