@@ -1,7 +1,7 @@
 import os
 import shutil
 import random
-from picsellia import Client
+from picsellia import Client, ModelVersion
 from picsellia.types.enums import AnnotationFileType
 from glob import glob
 import yaml
@@ -42,18 +42,21 @@ def main():
     print(f"Nouvelle expérimentation créée : {experiment.name}")
     # ---------- PARTIE 1 : Téléchargement du dataset ----------
 
+    dataset = client.get_dataset_version_by_id(dataset_uuid)
+
     # Si le dossier datasets ne contient aucun fichier
     if not os.path.exists("./datasets"):
         os.makedirs("./datasets")
     if not os.listdir("./datasets"):
-
-        dataset = client.get_dataset_version_by_id(dataset_uuid)
         # Récupération du dataset
         if not os.path.exists("./datasets/images"):
             os.makedirs("./datasets/images")
         if not os.listdir("./datasets/images"):
+
             # Téléchargement du dataset
-            dataset.list_assets().download("./datasets/images")
+            dataset.list_assets().download(
+                target_path="./datasets/images", use_id=True
+            )
 
         # Dossier où enregistrer les annotations
         output_dir = "./datasets/annotations"
@@ -65,7 +68,9 @@ def main():
         # Exporter les annotations au format YOLO
         print("Exportation des annotations au format YOLO...")
         dataset.export_annotation_file(
-            AnnotationFileType.YOLO, "./datasets/annotations.zip"
+            annotation_file_type=AnnotationFileType.YOLO,
+            target_path="./datasets/annotations.zip",
+            use_id=True,
         )
 
         print(f"Annotations téléchargées dans : {annotations_zip_path}")
@@ -184,7 +189,7 @@ def main():
         data=os.path.abspath(
             "./config.yaml"
         ),  # Chemin vers votre fichier config.yaml,
-        epochs=1,
+        epochs=10,
         batch=32,
         optimizer="Adam",
         lr0=0.001,
@@ -198,6 +203,19 @@ def main():
         "./datasets/structured/images/test"
     )  # Prédiction sur le jeu de test
 
+    class_names = [
+        "mikado",
+        "kinder_pingui",
+        "kinder_country",
+        "kinder_tronky",
+        "tic_tac",
+        "sucette",
+        "capsule",
+        "pepito",
+        "bouteille_plastique",
+        "canette",
+    ]
+
     # Assuming 'predictions' is a list of predictions for each image in the test set
     for prediction in predictions:
         # Assuming each prediction contains boxes, classes, and confidence scores
@@ -206,24 +224,26 @@ def main():
         ):
             # Get the image file name for the current prediction
             image_file_name = os.path.basename(prediction.path)
+            asset_id = image_file_name.split(".")[0]
 
             # Find the corresponding asset in your Picsellia dataset
-            asset = dataset.find_asset(filename=image_file_name)
+            asset = dataset.find_asset(id=asset_id)
 
             # Assuming your dataset has labels with the same names as your model's class IDs
-            label = dataset.get_label(name=dataset.names[int(class_id)])
+            label_name = class_names[int(class_id)]
+            label = dataset.get_label(name=label_name)
 
             # Add the evaluation for the current bounding box
             experiment.add_evaluation(
                 asset,
-                bounding_boxes=[
+                rectangles=[
                     (
-                        label,  # Picsellia label object
-                        box[0].item(),  # xmin
-                        box[1].item(),  # ymin
-                        box[2].item(),  # xmax
-                        box[3].item(),  # ymax
-                        score.item(),  # confidence score
+                        int(box[0].item()),  # xmin
+                        int(box[1].item()),  # ymin
+                        int(box[2].item()),  # xmax
+                        int(box[3].item()),  # ymax
+                        label,  # l'objet Label Picsellia
+                        score.item(),  # score de confiance
                     )
                 ],
             )
@@ -237,6 +257,9 @@ def main():
     model_save_path = "./trained_model.pt"
     model.save(model_save_path)
     print(f"Modèle entraîné sauvegardé dans : {model_save_path}")
+
+    # Envoi du modèle sur Picsellia
+    # experiment.export_as_model("best_model", model_save_path)
 
 
 if __name__ == "__main__":
