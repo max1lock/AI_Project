@@ -2,7 +2,7 @@ import os
 import shutil
 import random
 from picsellia import Client, ModelVersion
-from picsellia.types.enums import AnnotationFileType
+from picsellia.types.enums import AnnotationFileType, Framework
 from glob import glob
 import yaml
 import zipfile
@@ -24,6 +24,10 @@ def main():
     client = Client(api_token=api_key, organization_name=workspace_name)
 
     project = client.get_project(project_name="Groupe_6")
+
+    # Récupérer l'objet modèle existant "Groupe_6"
+    model_name = "Groupe_6"
+    model_obj = client.get_model(name=model_name)
 
     experiment_name = "experiment"
     existing_experiments = project.list_experiments()
@@ -259,7 +263,21 @@ def main():
     print(f"Modèle entraîné sauvegardé dans : {model_save_path}")
 
     # Envoi du modèle sur Picsellia
-    # experiment.export_as_model("best_model", model_save_path)
+    inference_type = InferenceType.OBJECT_DETECTION
+    framework = Framework.PYTORCH
+
+    model_version = model_obj.create_version(
+        type=inference_type, framework=framework
+    )
+
+    model_version.store(name="best", path=model_save_path)
+
+    # Attacher le model à l'expérimentation
+    experiment.attach_model_version(model_version)
+
+    print(
+        "Nouvelle version du modèle 'Groupe_6' créée et modèle uploadé avec succès."
+    )
 
 
 if __name__ == "__main__":
