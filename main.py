@@ -10,6 +10,7 @@ from ultralytics import YOLO
 import torch
 
 from src.PicselliaCallback import PicselliaCallback
+from picsellia.types.enums import InferenceType
 
 
 def main():
@@ -34,11 +35,6 @@ def main():
     )
 
     experiment = project.create_experiment(name=experiment_name)
-    # Attacher le dataset à l'expérimentation
-    experiment.attach_dataset(
-        dataset_uuid, client.get_dataset_version_by_id(dataset_uuid)
-    )
-    print(f"Nouvelle expérimentation créée : {experiment.name}")
     # Attacher le dataset à l'expérimentation
     experiment.attach_dataset(
         dataset_uuid, client.get_dataset_version_by_id(dataset_uuid)
@@ -179,34 +175,68 @@ def main():
 
     # Attacher le callback de Picsellia pour envoyer des logs après chaque époque
     picsellia_callback = PicselliaCallback(experiment)
-    model.add_callback("on_train_epoch_end", picsellia_callback.on_train_epoch_end)
+    model.add_callback(
+        "on_train_epoch_end", picsellia_callback.on_train_epoch_end
+    )
 
-    # Tune hyperparameters for 30 epochs
-    if not (os.path.exists("./runs")):
-        model.tune(
-            data=os.path.abspath("./config.yaml"),
-            epochs=30,
-            iterations=1,
-            optimizer="AdamW",
-            batchsize = 8,
-            plots=False,
-            save=False,
-            val=False,
-            learning_rate = 0.001,
-        )
-    # Charger les hyperparamètres depuis le fichier YAML
-    with open("./runs/detect/tune/best_hyperparameters.yaml", "r") as file:
-        best_hyperparameters = yaml.safe_load(file)
-
-    # Train using config.yaml and hyperparameters
     # Configurer et lancer l'entraînement
     model.train(
         data=os.path.abspath(
             "./config.yaml"
-        ),
-        **best_hyperparameters,
-        project="./results",
+        ),  # Chemin vers votre fichier config.yaml,
+        epochs=1,
+        batch=32,
+        optimizer="Adam",
+        lr0=0.001,
+        imgsz=640,
+        project=experiment_name,
+        name="train_results",
+        device="0",
     )
+
+    predictions = model.predict(
+        "./datasets/structured/images/test"
+    )  # Prédiction sur le jeu de test
+
+    # Assuming 'predictions' is a list of predictions for each image in the test set
+    for prediction in predictions:
+        # Assuming each prediction contains boxes, classes, and confidence scores
+        for box, class_id, score in zip(
+            prediction.boxes.xyxy, prediction.boxes.cls, prediction.boxes.conf
+        ):
+            # Get the image file name for the current prediction
+            image_file_name = os.path.basename(prediction.path)
+
+            # Find the corresponding asset in your Picsellia dataset
+            asset = dataset.find_asset(filename=image_file_name)
+
+            # Assuming your dataset has labels with the same names as your model's class IDs
+            label = dataset.get_label(name=dataset.names[int(class_id)])
+
+            # Add the evaluation for the current bounding box
+            experiment.add_evaluation(
+                asset,
+                bounding_boxes=[
+                    (
+                        label,  # Picsellia label object
+                        box[0].item(),  # xmin
+                        box[1].item(),  # ymin
+                        box[2].item(),  # xmax
+                        box[3].item(),  # ymax
+                        score.item(),  # confidence score
+                    )
+                ],
+            )
+
+    job = experiment.compute_evaluations_metrics(
+        InferenceType.OBJECT_DETECTION
+    )
+    job.wait_for_done()
+
+    # Sauvegarde du model
+    model_save_path = "./trained_model.pt"
+    model.save(model_save_path)
+    print(f"Modèle entraîné sauvegardé dans : {model_save_path}")
 
 
 if __name__ == "__main__":
