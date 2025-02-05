@@ -9,6 +9,8 @@ import zipfile
 from ultralytics import YOLO
 import torch
 
+from src.PicselliaCallback import PicselliaCallback
+
 
 def main():
     # Configuration
@@ -22,17 +24,21 @@ def main():
 
     project = client.get_project(project_name="Groupe_6")
 
-    experiment_name = "experiment_1"
+    experiment_name = "experiment"
     existing_experiments = project.list_experiments()
-    for exp in existing_experiments:
-        if exp.name == experiment_name:
-            print(
-                f"Une expérimentation avec le nom '{experiment_name}' existe déjà. Suppression en cours..."
-            )
-            exp.delete()
-            print(f"Expérimentation '{experiment_name}' supprimée.")
+    # Increment the experiment name
+    experiment_name = (
+        f"{experiment_name}_{len(existing_experiments) + 1}"
+        if experiment_name in [exp.name for exp in existing_experiments]
+        else experiment_name
+    )
 
     experiment = project.create_experiment(name=experiment_name)
+    # Attacher le dataset à l'expérimentation
+    experiment.attach_dataset(
+        dataset_uuid, client.get_dataset_version_by_id(dataset_uuid)
+    )
+    print(f"Nouvelle expérimentation créée : {experiment.name}")
     # Attacher le dataset à l'expérimentation
     experiment.attach_dataset(
         dataset_uuid, client.get_dataset_version_by_id(dataset_uuid)
@@ -171,6 +177,10 @@ def main():
     # use cuda gpu
     model.to(device="cuda:0")
 
+    # Attacher le callback de Picsellia pour envoyer des logs après chaque époque
+    picsellia_callback = PicselliaCallback(experiment)
+    model.add_callback("on_train_epoch_end", picsellia_callback.on_train_epoch_end)
+
     # Tune hyperparameters for 30 epochs
     if not (os.path.exists("./runs")):
         model.tune(
@@ -178,9 +188,11 @@ def main():
             epochs=30,
             iterations=1,
             optimizer="AdamW",
+            batchsize = 8,
             plots=False,
             save=False,
             val=False,
+            learning_rate = 0.001,
         )
     # Charger les hyperparamètres depuis le fichier YAML
     with open("./runs/detect/tune/best_hyperparameters.yaml", "r") as file:
@@ -191,8 +203,8 @@ def main():
     model.train(
         data=os.path.abspath(
             "./config.yaml"
-        ),  # Chemin vers votre fichier config.yaml
-        **best_hyperparameters,  # Appliquez les hyper-paramètres
+        ),
+        **best_hyperparameters,
         project="./results",
     )
 
