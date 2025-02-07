@@ -8,30 +8,36 @@ import yaml
 import zipfile
 from ultralytics import YOLO
 import torch
-
 from src.PicselliaCallback import PicselliaCallback
 from picsellia.types.enums import InferenceType
 
 
-def main():
+def main() -> None:
+    """
+    Main function to execute the full pipeline of downloading dataset,
+    structuring data, training a YOLO model, and evaluating the results.
+    """
     # Configuration
-    api_key = "6a0008897629d989cf385e35ff3c60e45b355584"
-    workspace_name = "Picsalex-MLOps"
-    dataset_name = "⭐️ cnam_product_2024"
-    dataset_uuid = "0193688e-aa8f-7cbe-9396-bec740a262d0"
+    api_key: str = "6a0008897629d989cf385e35ff3c60e45b355584"
+    workspace_name: str = "Picsalex-MLOps"
+    dataset_name: str = "⭐️ cnam_product_2024"
+    dataset_uuid: str = "0193688e-aa8f-7cbe-9396-bec740a262d0"
 
     # Connexion au client Picsellia
-    client = Client(api_token=api_key, organization_name=workspace_name)
+    client: Client = Client(
+        api_token=api_key, organization_name=workspace_name
+    )
 
     project = client.get_project(project_name="Groupe_6")
 
     # Récupérer l'objet modèle existant "Groupe_6"
-    model_name = "Groupe_6"
-    model_obj = client.get_model(name=model_name)
+    model_name: str = "Groupe_6"
+    model_obj: ModelVersion = client.get_model(name=model_name)
 
-    experiment_name = "experiment"
+    experiment_name: str = "experiment"
     existing_experiments = project.list_experiments()
-    # Increment the experiment name
+
+    # Increment the experiment name if necessary
     experiment_name = (
         f"{experiment_name}_{len(existing_experiments) + 1}"
         if experiment_name in [exp.name for exp in existing_experiments]
@@ -39,13 +45,14 @@ def main():
     )
 
     experiment = project.create_experiment(name=experiment_name)
+
     # Attacher le dataset à l'expérimentation
     experiment.attach_dataset(
         dataset_uuid, client.get_dataset_version_by_id(dataset_uuid)
     )
     print(f"Nouvelle expérimentation créée : {experiment.name}")
-    # ---------- PARTIE 1 : Téléchargement du dataset ----------
 
+    # ---------- PARTIE 1 : Téléchargement du dataset ----------
     dataset = client.get_dataset_version_by_id(dataset_uuid)
 
     # Si le dossier datasets ne contient aucun fichier
@@ -80,7 +87,6 @@ def main():
         print(f"Annotations téléchargées dans : {annotations_zip_path}")
 
         # Extraction des fichiers ZIP
-
         print("Extraction des annotations...")
         with zipfile.ZipFile(
             r".\datasets\annotations.zip\0192f6db-86b6-784c-80e6-163debb242d5\annotations\0193688e-aa8f-7cbe-9396-bec740a262d0_annotations.zip",
@@ -90,13 +96,7 @@ def main():
 
         print(f"Annotations extraites dans : {output_dir}")
 
-        # Suppression du fichier ZIP
-        # os.remove(r".\datasets\annotations.zip")
-
     # ---------- PARTIE 2 : Structurer les données pour Ultralytics YOLO ----------
-
-    # Chemin pour le fichier ZIP des annotations
-
     output_dir = "./datasets/structured"
     images_dir = f"{output_dir}/images"
     labels_dir = f"{output_dir}/labels"
@@ -109,7 +109,6 @@ def main():
     # Créer les répertoires de sortie
     os.makedirs(images_dir, exist_ok=True)
     os.makedirs(labels_dir, exist_ok=True)
-
     os.makedirs(f"{images_dir}/{train_dir}", exist_ok=True)
     os.makedirs(f"{images_dir}/{val_dir}", exist_ok=True)
     os.makedirs(f"{images_dir}/{test_dir}", exist_ok=True)
@@ -136,7 +135,17 @@ def main():
     test_pairs = data_pairs[val_split:]
 
     # Copier les fichiers dans les répertoires correspondants
-    def copy_files(pairs, dest_image_dir, dest_label_dir):
+    def copy_files(
+        pairs: list, dest_image_dir: str, dest_label_dir: str
+    ) -> None:
+        """
+        Copie les fichiers image et label dans les répertoires correspondants.
+
+        Args:
+            pairs (list): Liste des tuples (image, label).
+            dest_image_dir (str): Répertoire de destination des images.
+            dest_label_dir (str): Répertoire de destination des labels.
+        """
         for image, label in pairs:
             shutil.copy(image, dest_image_dir)
             shutil.copy(label, dest_label_dir)
@@ -149,7 +158,13 @@ def main():
         test_pairs, f"{images_dir}/{test_dir}", f"{labels_dir}/{test_dir}"
     )
 
-    def generate_yaml_file(output_path):
+    def generate_yaml_file(output_path: str) -> None:
+        """
+        Génère le fichier YAML de configuration pour l'entraînement de YOLO.
+
+        Args:
+            output_path (str): Chemin de sortie pour le fichier YAML.
+        """
         data = {
             "train": f"{images_dir}/{train_dir}",
             "val": f"{images_dir}/{val_dir}",
@@ -175,8 +190,6 @@ def main():
     generate_yaml_file("./config.yaml")
 
     # ---------- PARTIE 3 : Entraînement du modèle avec YOLO v11 ----------
-
-    # Charger le modèle YOLOv11
     model = YOLO("yolo11n.pt")
 
     # use cuda gpu
@@ -188,13 +201,10 @@ def main():
         "on_train_epoch_end", picsellia_callback.on_train_epoch_end
     )
 
-    # Configurer et lancer l'entraînement
     model.train(
-        data=os.path.abspath(
-            "./config.yaml"
-        ),  # Chemin vers votre fichier config.yaml,
+        data=os.path.abspath("./config.yaml"),
         epochs=10,
-        batch=32,
+        batch=8,
         optimizer="Adam",
         lr0=0.001,
         imgsz=640,
@@ -203,9 +213,7 @@ def main():
         device="0",
     )
 
-    predictions = model.predict(
-        "./datasets/structured/images/test"
-    )  # Prédiction sur le jeu de test
+    predictions = model.predict("./datasets/structured/images/test")
 
     class_names = [
         "mikado",
@@ -220,34 +228,27 @@ def main():
         "canette",
     ]
 
-    # Assuming 'predictions' is a list of predictions for each image in the test set
     for prediction in predictions:
-        # Assuming each prediction contains boxes, classes, and confidence scores
         for box, class_id, score in zip(
             prediction.boxes.xyxy, prediction.boxes.cls, prediction.boxes.conf
         ):
-            # Get the image file name for the current prediction
             image_file_name = os.path.basename(prediction.path)
             asset_id = image_file_name.split(".")[0]
 
-            # Find the corresponding asset in your Picsellia dataset
             asset = dataset.find_asset(id=asset_id)
-
-            # Assuming your dataset has labels with the same names as your model's class IDs
             label_name = class_names[int(class_id)]
             label = dataset.get_label(name=label_name)
 
-            # Add the evaluation for the current bounding box
             experiment.add_evaluation(
                 asset,
                 rectangles=[
                     (
-                        int(box[0].item()),  # xmin
-                        int(box[1].item()),  # ymin
-                        int(box[2].item()),  # xmax
-                        int(box[3].item()),  # ymax
-                        label,  # l'objet Label Picsellia
-                        score.item(),  # score de confiance
+                        int(box[0].item()),
+                        int(box[1].item()),
+                        int(box[2].item()),
+                        int(box[3].item()),
+                        label,
+                        score.item(),
                     )
                 ],
             )
@@ -257,7 +258,7 @@ def main():
     )
     job.wait_for_done()
 
-    # Sauvegarde du model
+    # Sauvegarde du modèle
     model_save_path = "./trained_model.pt"
     model.save(model_save_path)
     print(f"Modèle entraîné sauvegardé dans : {model_save_path}")
@@ -271,8 +272,6 @@ def main():
     )
 
     model_version.store(name="best", path=model_save_path)
-
-    # Attacher le model à l'expérimentation
     experiment.attach_model_version(model_version)
 
     print(
