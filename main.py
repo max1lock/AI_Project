@@ -210,11 +210,9 @@ def main() -> None:
     )
 
     model.train(
-        data=os.path.abspath(
-            "./config.yaml"
-        ),  # Chemin vers votre fichier config.yaml,
+        data=os.path.abspath("./config.yaml"),
         epochs=500,
-        batch=32,
+        batch=16,
         optimizer="AdamW",  # (AdamW, SGD...)
         lr0=5e-4,  # Réduire le LR initial peut aider sur des datasets complexes
         lrf=0.2,  # Facteur de LR final (décroissance)
@@ -224,9 +222,6 @@ def main() -> None:
         weight_decay=0.0005,  # Pénalité L2
         # Activer certaines augmentations
         augment=True,
-        mosaic=0.5,
-        mixup=0.2,
-        fliplr=0.5,
         # early stopping si la validation stagne (selon version YOLO)
         patience=50,
         project=experiment_name,
