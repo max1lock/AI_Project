@@ -11,6 +11,7 @@ from torch import optim
 from torch.optim.lr_scheduler import StepLR
 from ultralytics import YOLO
 import torch
+
 from src.PicselliaCallback import PicselliaCallback
 from picsellia.types.enums import InferenceType
 
@@ -209,41 +210,35 @@ def main() -> None:
     )
 
     model.train(
-        data=os.path.abspath("./config.yaml"),
-        epochs=100,  # Nombre d'époques
-        batch=16,  # Taille du batch
-        optimizer="AdamW",  # Optimiseur
-        lr0=0.001,  # Taux d'apprentissage
-        imgsz=640,  # Taille des images
-        project=experiment_name,  # Nom du projet pour stocker les résultats
-        name="train_results",  # Nom du répertoire pour les résultats
-        device="cuda:0",  # Utilisation du GPU
-        patience=10,  # Arrêt anticipé après 10 époques sans amélioration
-        workers=8,  # Nombre de workers pour le chargement des données
-        exist_ok=True,  # Ignorer les erreurs si le répertoire existe
-        **data_aug_config,  # Injection des paramètres de data augmentation
-    )
-
-    optimizer = optim.Adam(model.parameters(), lr=1e-5)
-
-    model.train(
-        data=os.path.abspath("./config.yaml"),
-        epochs=100,
-        batch=8,
-        optimizer="SGD",
-        lr0=0.0001,
-        imgsz=640,
+        data=os.path.abspath(
+            "./config.yaml"
+        ),  # Chemin vers votre fichier config.yaml,
+        epochs=500,
+        batch=32,
+        optimizer="AdamW",  # (AdamW, SGD...)
+        lr0=5e-4,  # Réduire le LR initial peut aider sur des datasets complexes
+        lrf=0.2,  # Facteur de LR final (décroissance)
+        warmup_epochs=5,  # Éventuel warmup pour stabiliser l'entraînement
+        warmup_momentum=0.8,  # Momentum pour le warmup
+        warmup_bias_lr=0.1,  # Bias LR pour le warmup
+        weight_decay=0.0005,  # Pénalité L2
+        # Activer certaines augmentations
+        augment=True,
+        mosaic=0.5,
+        mixup=0.2,
+        fliplr=0.5,
+        # early stopping si la validation stagne (selon version YOLO)
+        patience=50,
         project=experiment_name,
         name="train_results",
-        device="cuda:0",
-        # patience=10,
-        workers=8,
-        exist_ok=True,
-        seed=42,
-        close_mosaic=0,
+        device="0",
+        **data_aug_config,
     )
 
-    predictions = model.predict("./datasets/structured/images/test")
+    predictions = model.predict(
+        source="./datasets/structured/images/test",
+        # conf=0.14 # en fonction de la courbe F1
+    )  # Prédiction sur le jeu de test
 
     class_names = [
         "mikado",
@@ -288,9 +283,8 @@ def main() -> None:
     )
     job.wait_for_done()
 
-    # Sauvegarde du modèle
-    model_save_path = "./trained_model.pt"
-    model.save(model_save_path)
+    # Sauvegarde du model
+    model_save_path = f"./{experiment_name}/train_results/weights/best.pt"
     print(f"Modèle entraîné sauvegardé dans : {model_save_path}")
 
     # Envoi du modèle sur Picsellia
