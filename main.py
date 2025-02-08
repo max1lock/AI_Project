@@ -1,6 +1,8 @@
 import os
 import shutil
 import random
+
+from numpy.lib.utils import source
 from picsellia import Client, ModelVersion
 from picsellia.types.enums import AnnotationFileType, Framework
 from glob import glob
@@ -188,23 +190,35 @@ def main():
         "on_train_epoch_end", picsellia_callback.on_train_epoch_end
     )
 
-    # Configurer et lancer l'entraînement
+    # Configurer les hyperparamètres et lancer l'entraînement
     model.train(
         data=os.path.abspath(
             "./config.yaml"
         ),  # Chemin vers votre fichier config.yaml,
-        epochs=10,
+        epochs=500,
         batch=32,
-        optimizer="Adam",
-        lr0=0.001,
-        imgsz=640,
+        optimizer="AdamW",  # (AdamW, SGD...)
+        lr0=5e-4,  # Réduire le LR initial peut aider sur des datasets complexes
+        lrf=0.2,  # Facteur de LR final (décroissance)
+        warmup_epochs=5,  # Éventuel warmup pour stabiliser l'entraînement
+        warmup_momentum=0.8,  # Momentum pour le warmup
+        warmup_bias_lr=0.1,  # Bias LR pour le warmup
+        weight_decay=0.0005,  # Pénalité L2
+        # Activer certaines augmentations
+        augment=True,
+        mosaic=0.5,
+        mixup=0.2,
+        fliplr=0.5,
+        # early stopping si la validation stagne (selon version YOLO)
+        patience=50,
         project=experiment_name,
         name="train_results",
         device="0",
     )
 
     predictions = model.predict(
-        "./datasets/structured/images/test"
+        source="./datasets/structured/images/test",
+        # conf=0.14 # en fonction de la courbe F1
     )  # Prédiction sur le jeu de test
 
     class_names = [
@@ -258,8 +272,7 @@ def main():
     job.wait_for_done()
 
     # Sauvegarde du model
-    model_save_path = "./trained_model.pt"
-    model.save(model_save_path)
+    model_save_path = f"./{experiment_name}/train_results/weights/best.pt"
     print(f"Modèle entraîné sauvegardé dans : {model_save_path}")
 
     # Envoi du modèle sur Picsellia
