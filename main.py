@@ -6,6 +6,9 @@ from picsellia.types.enums import AnnotationFileType, Framework
 from glob import glob
 import yaml
 import zipfile
+
+from torch import optim
+from torch.optim.lr_scheduler import StepLR
 from ultralytics import YOLO
 import torch
 from src.PicselliaCallback import PicselliaCallback
@@ -189,8 +192,12 @@ def main() -> None:
 
     generate_yaml_file("./config.yaml")
 
+    # Charger la configuration de data augmentation
+    with open("data_augmentation.yaml", "r") as file:
+        data_aug_config = yaml.safe_load(file)["augmentations"]
+
     # ---------- PARTIE 3 : Entraînement du modèle avec YOLO v11 ----------
-    model = YOLO("yolo11n.pt")
+    model = YOLO("yolo11s.pt")
 
     # use cuda gpu
     model.to(device="cuda:0")
@@ -203,14 +210,37 @@ def main() -> None:
 
     model.train(
         data=os.path.abspath("./config.yaml"),
-        epochs=10,
+        epochs=100,  # Nombre d'époques
+        batch=16,  # Taille du batch
+        optimizer="AdamW",  # Optimiseur
+        lr0=0.001,  # Taux d'apprentissage
+        imgsz=640,  # Taille des images
+        project=experiment_name,  # Nom du projet pour stocker les résultats
+        name="train_results",  # Nom du répertoire pour les résultats
+        device="cuda:0",  # Utilisation du GPU
+        patience=10,  # Arrêt anticipé après 10 époques sans amélioration
+        workers=8,  # Nombre de workers pour le chargement des données
+        exist_ok=True,  # Ignorer les erreurs si le répertoire existe
+        **data_aug_config,  # Injection des paramètres de data augmentation
+    )
+
+    optimizer = optim.Adam(model.parameters(), lr=1e-5)
+
+    model.train(
+        data=os.path.abspath("./config.yaml"),
+        epochs=100,
         batch=8,
-        optimizer="Adam",
-        lr0=0.001,
+        optimizer="SGD",
+        lr0=0.0001,
         imgsz=640,
         project=experiment_name,
         name="train_results",
-        device="0",
+        device="cuda:0",
+        # patience=10,
+        workers=8,
+        exist_ok=True,
+        seed=42,
+        close_mosaic=0,
     )
 
     predictions = model.predict("./datasets/structured/images/test")

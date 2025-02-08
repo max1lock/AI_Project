@@ -1,0 +1,9 @@
+augmentations:
+  flipud: 0.5  # Flip vertical avec une probabilité de 50%
+  fliplr: 0.5  # Flip horizontal avec une probabilité de 50%
+  hsv_h: 0.015 # Variation de la teinte
+  hsv_s: 0.7   # Variation de la saturation
+  hsv_v: 0.4   # Variation de la luminosité
+  mosaic: 1.0  # Active la mosaïque
+  mixup: 0.2   # Fusionne des images avec une probabilité de 20%
+  crop_fraction: 0.8 # Recadrage jusqu'à 80% de l'image
