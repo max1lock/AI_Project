@@ -1,8 +1,21 @@
 import os
+from fileinput import filename
+
 import cv2
 import argparse
 from picsellia import Client, ModelVersion
+from scipy.misc import ascent
 from ultralytics import YOLO
+import re
+
+
+def extract_model_number(version):
+    # On suppose que str(version) renvoie quelque chose du type "Version Groupe_6-15 of Model '15' ..."
+    match = re.search(r"Model '(\d+)'", str(version))
+    if match:
+        return int(match.group(1))
+    # En cas d'absence de numéro, on renvoie -1 pour être sûr de le ne pas prendre en compte
+    return -1
 
 
 def load_model_from_picsellia(
@@ -24,10 +37,15 @@ def load_model_from_picsellia(
     model_name = "Groupe_6"
     model = client.get_model(name=model_name)
 
-    model_version = model.get_version(model.latest_version)
+    model_versions = model.list_versions()
+    last_version = max(model_versions, key=extract_model_number)
 
-    model_path = "./best.pt"
-    model_version.download(target_path=model_path)
+    path_to_download = "./models"
+    client.get_model_version_by_id(last_version.id).get_file(
+        name="best"
+    ).download(target_path=path_to_download, force_replace=True)
+
+    model_path = path_to_download + "/best.pt"
     print(f"✅ Modèle téléchargé : {model_path}")
 
     return model_path
@@ -48,15 +66,34 @@ def run_inference(model_path: str, mode: str, source: str = None):
         if source is None:
             raise ValueError("❌ Chemin d'image requis pour le mode IMAGE.")
         results = model(source)
-        results.show()  # Affiche les résultats
+        # Comme results est une liste, on parcourt chaque résultat et on appelle show()
+        for r in results:
+            r.show()  # Affiche l'image annotée
         print("✅ Inférence sur IMAGE terminée.")
 
     elif mode == "VIDEO":
         if source is None:
             raise ValueError("❌ Chemin de vidéo requis pour le mode VIDEO.")
-        results = model(source, stream=True)
-        for frame in results:
-            frame.show()  # Affiche chaque frame analysée
+        # Utilisation de cv2.VideoCapture pour lire le fichier vidéo
+        cap = cv2.VideoCapture(source)
+        if not cap.isOpened():
+            raise ValueError("❌ Impossible d'ouvrir la vidéo.")
+        print(
+            "🎥 Inférence sur VIDEO en cours... (Appuyez sur 'q' pour quitter)"
+        )
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            # Appliquer le modèle sur la frame
+            results = model(frame)
+            # On utilise plot() sur le premier résultat pour obtenir l'image annotée
+            annotated_frame = results[0].plot()
+            cv2.imshow("YOLO Video Inference", annotated_frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+        cap.release()
+        cv2.destroyAllWindows()
         print("✅ Inférence sur VIDEO terminée.")
 
     elif mode == "WEBCAM":
@@ -69,7 +106,8 @@ def run_inference(model_path: str, mode: str, source: str = None):
             if not ret:
                 break
             results = model(frame)
-            cv2.imshow("YOLO Inference", results.render()[0])
+            frame_rendered = results[0].plot()
+            cv2.imshow("YOLO Inference", frame_rendered)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
         cap.release()
