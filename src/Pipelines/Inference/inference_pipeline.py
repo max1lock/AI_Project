@@ -4,7 +4,6 @@ from fileinput import filename
 import cv2
 import argparse
 from picsellia import Client, ModelVersion
-from scipy.misc import ascent
 from ultralytics import YOLO
 import re
 
@@ -32,6 +31,7 @@ def load_model_from_picsellia(
     Returns:
         str: Chemin local du fichier best.pt.
     """
+
     client = Client(api_token=api_key, organization_name=workspace_name)
 
     model_name = "Groupe_6"
@@ -62,11 +62,14 @@ def run_inference(model_path: str, mode: str, source: str = None):
     """
     model = YOLO(model_path)
 
+    mode = (
+        mode.upper()
+    )  # Convertir le mode en majuscules pour éviter des erreurs liées à la casse.
+
     if mode == "IMAGE":
         if source is None:
             raise ValueError("❌ Chemin d'image requis pour le mode IMAGE.")
         results = model(source)
-        # Comme results est une liste, on parcourt chaque résultat et on appelle show()
         for r in results:
             r.show()  # Affiche l'image annotée
         print("✅ Inférence sur IMAGE terminée.")
@@ -74,7 +77,6 @@ def run_inference(model_path: str, mode: str, source: str = None):
     elif mode == "VIDEO":
         if source is None:
             raise ValueError("❌ Chemin de vidéo requis pour le mode VIDEO.")
-        # Utilisation de cv2.VideoCapture pour lire le fichier vidéo
         cap = cv2.VideoCapture(source)
         if not cap.isOpened():
             raise ValueError("❌ Impossible d'ouvrir la vidéo.")
@@ -85,9 +87,7 @@ def run_inference(model_path: str, mode: str, source: str = None):
             ret, frame = cap.read()
             if not ret:
                 break
-            # Appliquer le modèle sur la frame
             results = model(frame)
-            # On utilise plot() sur le premier résultat pour obtenir l'image annotée
             annotated_frame = results[0].plot()
             cv2.imshow("YOLO Video Inference", annotated_frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -118,34 +118,3 @@ def run_inference(model_path: str, mode: str, source: str = None):
         raise ValueError(
             "❌ Mode invalide. Choisissez IMAGE, VIDEO ou WEBCAM."
         )
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Pipeline d'inférence avec YOLO et Picsellia."
-    )
-    parser.add_argument(
-        "--mode",
-        type=str,
-        required=True,
-        choices=["IMAGE", "VIDEO", "WEBCAM"],
-        help="Mode d'inférence.",
-    )
-    parser.add_argument(
-        "--source",
-        type=str,
-        required=False,
-        help="Chemin du fichier (requis pour IMAGE et VIDEO).",
-    )
-
-    args = parser.parse_args()
-
-    # Connexion et récupération du modèle
-    API_KEY = "6a0008897629d989cf385e35ff3c60e45b355584"
-    WORKSPACE_NAME = "Picsalex-MLOps"
-    MODEL_NAME = "Groupe_6"
-
-    model_path = load_model_from_picsellia(API_KEY, WORKSPACE_NAME, MODEL_NAME)
-
-    # Exécuter l'inférence
-    run_inference(model_path, args.mode, args.source)
