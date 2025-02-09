@@ -12,6 +12,34 @@ from src.Picsellia.PicselliaConfig import (
 from config import settings
 
 
+def get_new_experiment_name(base_name, experiments):
+    """
+    Parcourt la liste des expériences pour extraire le dernier suffixe numérique associé
+    au nom de base (par exemple 'experiment') et retourne un nouveau nom avec le suffixe incrémenté.
+
+    Si aucune expérience ne contient de suffixe, le nom de base est retourné.
+
+    Args:
+        base_name (str): Nom de base de l'expérience (ex. "experiment").
+        experiments (list): Liste d'objets expérience ayant un attribut 'name'.
+
+    Returns:
+        str: Nouveau nom pour l'expérience.
+    """
+    last_number = 0
+    for exp in experiments:
+        name = exp.name
+        if name == base_name:
+            last_number = max(last_number, 1)
+        elif name.startswith(f"{base_name}_"):
+            try:
+                number = int(name.split("_")[-1])
+                last_number = max(last_number, number)
+            except ValueError:
+                continue
+    return f"{base_name}_{last_number + 1}" if last_number else base_name
+
+
 def train_model() -> None:
     """
     Pipeline d'entraînement du modèle YOLO.
@@ -27,11 +55,12 @@ def train_model() -> None:
     project = get_project(client, project_name)
     model_obj = get_model_object(client, model_name)
 
-    experiment_name = "experiment"
+    base_name = "experiment"
     existing_experiments = project.list_experiments()
-    if experiment_name in [exp.name for exp in existing_experiments]:
-        experiment_name = f"{experiment_name}_{len(existing_experiments) + 1}"
-    experiment = project.create_experiment(name=experiment_name)
+    new_experiment_name = get_new_experiment_name(
+        base_name, existing_experiments
+    )
+    experiment = project.create_experiment(name=new_experiment_name)
     experiment.attach_dataset(
         dataset_uuid, client.get_dataset_version_by_id(dataset_uuid)
     )
@@ -56,7 +85,7 @@ def train_model() -> None:
 
     model.train(
         data=os.path.abspath(config_yaml_path),
-        project=experiment_name,
+        project=new_experiment_name,
         name="train_results",
         device="0",
         **hyperparameters_config,
@@ -96,7 +125,7 @@ def train_model() -> None:
     )
     job.wait_for_done()
 
-    model_save_path = f"./{experiment_name}/train_results/weights/best.pt"
+    model_save_path = f"./{new_experiment_name}/train_results/weights/best.pt"
     print(f"Modèle entraîné sauvegardé dans : {model_save_path}")
 
     inference_type = InferenceType.OBJECT_DETECTION
@@ -110,7 +139,3 @@ def train_model() -> None:
     print(
         "Nouvelle version du modèle 'Groupe_6' créée et uploadée avec succès."
     )
-
-
-if __name__ == "__main__":
-    train_model()
