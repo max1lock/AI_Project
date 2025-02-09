@@ -1,16 +1,13 @@
-# Entraînement
-epochs: 150        # Augmentation du nombre d'epochs pour un meilleur affinement
-patience: 20       # Patience accrue pour laisser le temps à l'apprentissage de converger
-batch: 32          # Taille de batch augmentée pour des gradients plus stables (vérifier la mémoire GPU)
-imgsz: 640         # Résolution standard (à tester éventuellement à 768 ou 896 selon vos besoins)
+epochs: 150
+patience: 20
+batch: 32
+imgsz: 640
 workers: 8
 exist_ok: true
-cache: true        # Activation du cache si la RAM le permet
-# Optimiseur et taux d'apprentissage
+cache: true
 optimizer: "AdamW"
-lr0: 0.0005        # Taux d'apprentissage réduit avec warm-up
-weight_decay: 0.0005  # Régularisation par weight decay
+lr0: 0.0005
+weight_decay: 0.0005
 warmup_epochs: 3
-# Augmentations de données pour enrichir le dataset (votre framework devra supporter ces options)
 mosaic: true
 mixup: true
