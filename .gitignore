@@ -185,3 +185,4 @@ results
 .secrets.toml
 
 experiment*
+/experiment_*/
