@@ -1,19 +1,18 @@
 import os
 import shutil
 import random
-from picsellia import Client, ModelVersion
+from picsellia import Client
 from picsellia.types.enums import AnnotationFileType, Framework
 from glob import glob
 import yaml
 import zipfile
 
-from torch import optim
-from torch.optim.lr_scheduler import StepLR
 from ultralytics import YOLO
-import torch
 
 from src.PicselliaCallback import PicselliaCallback
 from picsellia.types.enums import InferenceType
+
+from config import settings
 
 
 def main() -> None:
@@ -22,19 +21,20 @@ def main() -> None:
     structuring data, training a YOLO model, and evaluating the results.
     """
     # Configuration
-    api_key: str = "6a0008897629d989cf385e35ff3c60e45b355584"
-    workspace_name: str = "Picsalex-MLOps"
-    dataset_uuid: str = "0193688e-aa8f-7cbe-9396-bec740a262d0"
+    api_key: str = settings.api_key
+    workspace_name: str = settings.workspace_name
+    dataset_uuid: str = settings.dataset_uuid
+    groupe_name: str = settings.groupe_name
 
     # Connexion au client Picsellia
     client: Client = Client(
         api_token=api_key, organization_name=workspace_name
     )
 
-    project = client.get_project(project_name="Groupe_6")
+    project = client.get_project(project_name=groupe_name)
 
     # Récupérer l'objet modèle existant "Groupe_6"
-    model_name: str = "Groupe_6"
+    model_name: str = groupe_name
     model_obj = client.get_model(name=model_name)
 
     experiment_name: str = "experiment"
