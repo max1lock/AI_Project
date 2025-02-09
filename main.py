@@ -1,4 +1,5 @@
 import argparse
+
 from src.Pipelines.Train.train_pipeline import train_model
 from src.Pipelines.Inference.inference_pipeline import (
     run_inference,
@@ -9,8 +10,18 @@ from config import settings
 
 def main():
     """
-    Main function to execute the full pipeline of downloading dataset,
-    structuring data, training a YOLO model, and evaluating the results.
+    Script principal.
+
+    Lance la pipeline d'entraînement ou d'inférence selon les arguments fournis.
+
+    Usage :
+        --train
+            Lance l'entraînement.
+        --inference [--webcam | --image | --video] [--source <chemin>]
+            Lance l'inférence.
+            --image et --video nécessitent l'argument --source.
+
+    La configuration (clé API, workspace, etc.) est chargée via le module 'config'.
     """
     parser = argparse.ArgumentParser(
         description="Choisissez une pipeline : entraînement ou inférence."
