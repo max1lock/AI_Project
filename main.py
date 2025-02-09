@@ -24,7 +24,6 @@ def main() -> None:
     # Configuration
     api_key: str = "6a0008897629d989cf385e35ff3c60e45b355584"
     workspace_name: str = "Picsalex-MLOps"
-    dataset_name: str = "⭐️ cnam_product_2024"
     dataset_uuid: str = "0193688e-aa8f-7cbe-9396-bec740a262d0"
 
     # Connexion au client Picsellia
@@ -36,7 +35,7 @@ def main() -> None:
 
     # Récupérer l'objet modèle existant "Groupe_6"
     model_name: str = "Groupe_6"
-    model_obj: ModelVersion = client.get_model(name=model_name)
+    model_obj = client.get_model(name=model_name)
 
     experiment_name: str = "experiment"
     existing_experiments = project.list_experiments()
@@ -194,11 +193,11 @@ def main() -> None:
     generate_yaml_file("./config.yaml")
 
     # Charger la configuration de data augmentation
-    with open("data_augmentation.yaml", "r") as file:
-        data_aug_config = yaml.safe_load(file)["augmentations"]
+    with open("hyperparameters.yaml", "r") as file:
+        hyperparameters_config = yaml.safe_load(file)
 
     # ---------- PARTIE 3 : Entraînement du modèle avec YOLO v11 ----------
-    model = YOLO("yolo11s.pt")
+    model = YOLO("yolo11n.pt")
 
     # use cuda gpu
     model.to(device="cuda:0")
@@ -211,23 +210,10 @@ def main() -> None:
 
     model.train(
         data=os.path.abspath("./config.yaml"),
-        epochs=500,
-        batch=16,
-        optimizer="AdamW",  # (AdamW, SGD...)
-        lr0=5e-4,  # Réduire le LR initial peut aider sur des datasets complexes
-        lrf=0.2,  # Facteur de LR final (décroissance)
-        warmup_epochs=5,  # Éventuel warmup pour stabiliser l'entraînement
-        warmup_momentum=0.8,  # Momentum pour le warmup
-        warmup_bias_lr=0.1,  # Bias LR pour le warmup
-        weight_decay=0.0005,  # Pénalité L2
-        # Activer certaines augmentations
-        augment=True,
-        # early stopping si la validation stagne (selon version YOLO)
-        patience=50,
         project=experiment_name,
         name="train_results",
         device="0",
-        **data_aug_config,
+        **hyperparameters_config,
     )
 
     predictions = model.predict(
