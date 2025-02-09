@@ -6,6 +6,7 @@ class PicselliaCallback:
         self.experiment = experiment
 
     def on_train_epoch_end(self, trainer):
+        """Called at the end of each epoch."""
         try:
             for name, value in trainer.metrics.items():
                 self.experiment.log(name, [value], LogType.LINE)

@@ -13,19 +13,20 @@ from config import settings
 
 
 def train_model() -> None:
-    # --- Configuration Picsellia et Dataset ---
+    """
+    Pipeline d'entraînement du modèle YOLO.
+    :return:
+    """
     api_key = settings.api_key
     workspace_name = settings.workspace_name
     dataset_uuid = settings.dataset_uuid
     project_name = settings.groupe_name
     model_name = settings.groupe_name
 
-    # Créer le client et récupérer le projet et le modèle
     client = get_client(api_key, workspace_name)
     project = get_project(client, project_name)
     model_obj = get_model_object(client, model_name)
 
-    # Création ou récupération de l'expérimentation
     experiment_name = "experiment"
     existing_experiments = project.list_experiments()
     if experiment_name in [exp.name for exp in existing_experiments]:
@@ -36,26 +37,18 @@ def train_model() -> None:
     )
     print(f"Nouvelle expérimentation créée : {experiment.name}")
 
-    # --- Préparation des données ---
-    # Téléchargement des images
     dataset = data_preparation.download_images(client, dataset_uuid)
-    # Export et extraction des annotations
     data_preparation.export_and_extract_annotations(dataset)
-    # Structuration des données en splits (train/val/test)
     images_dir = data_preparation.structure_dataset()
-    # Génération du fichier de config YAML pour YOLO
     config_yaml_path = "./config.yaml"
     data_preparation.generate_yaml_file(config_yaml_path, images_dir)
 
-    # Charger la configuration des hyperparamètres
     with open("hyperparameters.yaml", "r") as file:
         hyperparameters_config = yaml.safe_load(file)
 
-    # --- Entraînement du modèle ---
     model = YOLO("yolo11n.pt")
     model.to(device="cuda:0")
 
-    # Attacher le callback pour envoyer des logs à Picsellia
     picsellia_callback = PicselliaCallback(experiment)
     model.add_callback(
         "on_train_epoch_end", picsellia_callback.on_train_epoch_end
@@ -69,7 +62,6 @@ def train_model() -> None:
         **hyperparameters_config,
     )
 
-    # Prédictions sur le jeu de test (évaluation)
     predictions = model.predict(source="./datasets/structured/images/test")
 
     class_names = model.names
@@ -104,11 +96,9 @@ def train_model() -> None:
     )
     job.wait_for_done()
 
-    # Sauvegarde du modèle entraîné
     model_save_path = f"./{experiment_name}/train_results/weights/best.pt"
     print(f"Modèle entraîné sauvegardé dans : {model_save_path}")
 
-    # --- Upload du modèle sur Picsellia ---
     inference_type = InferenceType.OBJECT_DETECTION
     framework = Framework.PYTORCH
     model_version = model_obj.create_version(

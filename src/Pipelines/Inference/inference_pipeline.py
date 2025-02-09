@@ -9,6 +9,11 @@ import re
 
 
 def extract_model_number(version):
+    """
+    Extrait le numéro de modèle à partir de la version.
+    :param version:
+    :return int: Numéro de modèle.
+    """
     # On suppose que str(version) renvoie quelque chose du type "Version Groupe_6-15 of Model '15' ..."
     match = re.search(r"Model '(\d+)'", str(version))
     if match:
